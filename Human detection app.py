@@ -34,28 +34,52 @@ import datetime
 from datetime import datetime, timezone
 import requests
 
-# Fetch Live Data and Timestamp from ThingSpeak Channel 3579002
-READ_API_KEY = "PVZCSGAU291YE5CF"
-CHANNEL_ID = "3579002"
+# Fetch Live Data and Timestamp from ThingSpeak 
+# --- Dual-Channel Configuration ---
+FIXED_CHANNEL_ID = "3579002"
+READ_API_KEY_FIXED = "PVZCSGAU291YE5CF"
 
-url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=1"
+MOBILE_CHANNEL_ID = "3579370"
+READ_API_KEY_MOBILE = "H696MBRW1AIS_OR_WHATEVER" # آپ کی دی گئی Read Key نیچے درج ہے
 
+fixed_url = f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=1"
+mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.json?api_key=H696MBRW1ASMZZ3W&results=1"
+
+# 1. Fetch Fixed Channel Status (Vitals & RSSI)
 @st.cache_data(ttl=2)
 def get_thingspeak_status():
     try:
-        response = requests.get(url)
+        response = requests.get(fixed_url)
         data = response.json()
         feeds = data['feeds']
         if feeds:
             latest = feeds[-1]
             val = float(latest['field1'])
-            created_at = latest['created_at']  # جب آخری بار ڈیٹا آیا
+            created_at = latest['created_at']
             return val, created_at
     except:
         pass
     return -70.0, None
 
 rssi_val, last_time = get_thingspeak_status()
+
+# 2. Fetch Mobile Worker Channel Coordinates (X 
+
+# --- SECTION 2: Spatial Grid & Target Mapping (Mobile Worker Node) ---
+elif mode == "📍 Spatial Grid & Target Mapping":
+    st.subheader("📍 Spatial Grid & Target Mapping (Live Worker)")
+    st.markdown("Coordinates fetched live from Mobile Worker ESP-32 (Channel 3579370).")
+    
+    # Live Grid Target Mapping Data using Mobile Node Coordinates
+    grid_data = pd.DataFrame({
+        'X': [worker_x],
+        'Y': [worker_y],
+        'Color': ['red']
+    })
+    
+    # Scatter plot for live grid mapping
+    st.scatter_chart(grid_data, x='X', y='Y', color='Color', size=150)
+    st.success(f"📌 **Current Worker Position ->** X-Axis: {worker_x} | Y-Axis: {worker_y}")
 
 # Real connection status check based on timestamp within last 3 minutes
 connection_status = "Disconnected ❌"
