@@ -67,21 +67,6 @@ rssi_val, last_time = get_thingspeak_status()
 
 # 2. Fetch Mobile Worker Channel Coordinates (X 
 
-# --- SECTION 2: Spatial Grid & Target Mapping (Mobile Worker Node) ---
-elif mode == "📍 Spatial Grid & Target Mapping":
-    st.subheader("📍 Spatial Grid & Target Mapping (Live Worker)")
-    st.markdown("Coordinates fetched live from Mobile Worker ESP-32 (Channel 3579370).")
-    
-    # Live Grid Target Mapping Data using Mobile Node Coordinates
-    grid_data = pd.DataFrame({
-        'X': [worker_x],
-        'Y': [worker_y],
-        'Color': ['red']
-    })
-    
-    # Scatter plot for live grid mapping
-    st.scatter_chart(grid_data, x='X', y='Y', color='Color', size=150)
-    st.success(f"📌 **Current Worker Position ->** X-Axis: {worker_x} | Y-Axis: {worker_y}")
 
 # Real connection status check based on timestamp within last 3 minutes
 connection_status = "Disconnected ❌"
