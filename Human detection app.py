@@ -30,9 +30,7 @@ def load_html(file_name):
         pass
 
 # Optional: Display HTML Welcome Banner at the top of the sidebar or main page
-# load_html("index.html")
-
-local_css("style.css")
+load_html("index.html")
 
 st.sidebar.title("🛡️ Control Center / کنٹرول سینٹر")
 mode = st.sidebar.selectbox("Select Mode", ["🌍 Disaster Rescue & Vitals", "🏠 Smart Home Security"])
