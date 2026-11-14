@@ -98,12 +98,14 @@ with col3:
 with col4:
     st.metric(label="🔋 System Status", value=connection_status, delta=f"ID: {CHANNEL_ID}")
 
-# Alert Box
+# Alert Box (Only trigger if device is truly connected live and signal variance is detected)
+
 status_placeholder = st.empty()
-if abs(rssi_val - (-70)) > 5.0:
+if "Connected Live" in connection_status and abs(rssi_val - (-70)) > 5.0:
     status_placeholder.error("🚨 **CRITICAL ALERT:** ملبے میں جاندار کی موجودگی اور جسمانی حرکات ریکارڈ ہوئی ہیں!")
 else:
-    status_placeholder.success("🟢 **STATUS:** زون محفوظ ہے / سگنل نارمل ہیں۔")
+    status_placeholder.success("🟢 **STATUS:** زون محفوظ ہے / سگنل نارمل ہیں۔ (ڈیوائس آفت سے محفوظ زون پر مانیٹر کر رہی ہے)")
+
 
 # --- Fetch Multiple Live Feeds for Real-time Graph ---
 @st.cache_data(ttl=2)
