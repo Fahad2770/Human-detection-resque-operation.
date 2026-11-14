@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+from datetime import datetime, timezone
 
 # Page Configuration for Mobile and Desktop
 st.set_page_config(
@@ -30,9 +31,6 @@ if lang == "اردو":
 else:
     st.title("🚨 Live Disaster Rescue & Vitals Monitor")
     st.markdown("### Sub-debris human signal tracking, vitals & spatial mapping")
-import datetime
-from datetime import datetime, timezone
-import requests
 
 # --- Dual-Channel Configuration ---
 FIXED_CHANNEL_ID = "3579002"
@@ -48,15 +46,16 @@ mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.jso
 @st.cache_data(ttl=2)
 def get_thingspeak_status():
     try:
-        response = requests.get(fixed_url)
+        response = requests.get(fixed_url, timeout=10)
+        response.raise_for_status()
         data = response.json()
-        feeds = data['feeds']
+        feeds = data.get("feeds", [])
         if feeds:
             latest = feeds[-1]
-            val = float(latest['field1'])
-            created_at = latest['created_at']
-            return val, created_at
-    except:
+            field1 = latest.get("field1")
+            if field1 is not None and field1 != "":
+                return float(field1), latest.get("created_at")
+    except Exception:
         pass
     return -70.0, None
 
@@ -70,7 +69,7 @@ if last_time:
         last_dt = datetime.fromisoformat(clean_time)
         current_dt = datetime.now(timezone.utc)
         diff_seconds = (current_dt - last_dt).total_seconds()
-        
+
         if diff_seconds <= 120:
             connection_status = "Connected Live 🟢"
         else:
@@ -82,15 +81,16 @@ if last_time:
 @st.cache_data(ttl=2)
 def get_mobile_coordinates():
     try:
-        response = requests.get(mobile_url)
+        response = requests.get(mobile_url, timeout=10)
+        response.raise_for_status()
         data = response.json()
-        feeds = data['feeds']
+        feeds = data.get("feeds", [])
         if feeds:
             latest = feeds[-1]
-            x_val = float(latest.get('field1', 2.0))
-            y_val = float(latest.get('field2', 2.0))
+            x_val = float(latest.get("field1", 2.0))
+            y_val = float(latest.get("field2", 2.0))
             return x_val, y_val
-    except:
+    except Exception:
         pass
     return 2.0, 2.0
 
@@ -106,51 +106,25 @@ bp_diastolic = int(max(60, min(95, 80 + variance * 0.3)))
 @st.cache_data(ttl=2)
 def get_recent_history():
     try:
-        res = requests.get(f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=10")
+        res = requests.get(f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=10", timeout=10)
+        res.raise_for_status()
         data = res.json()
-        feeds = data['feeds']
-        signals = [float(f['field1']) for f in feeds if f.get('field1') is not None and f.get('field1') != ""]
+        feeds = data.get("feeds", [])
+        signals = []
+        for feed in feeds:
+            field1 = feed.get("field1")
+            if field1 is not None and field1 != "":
+                try:
+                    signals.append(float(field1))
+                except (TypeError, ValueError):
+                    continue
         if signals:
             return signals
-    except:
+    except Exception:
         pass
     return [rssi_val]
 
 historical_signals = get_recent_history()
-
-
-
-# 2. Fetch Mobile Worker Channel Coordinates (X 
-
-
-# Real connection status check based on timestamp within last 3 minutes
-connection_status = "Disconnected ❌"
-if last_time:
-    try:
-        last_dt = datetime.strptime(last_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        current_dt = datetime.now(timezone.utc)
-        diff_seconds = (current_dt - last_dt).total_seconds()
-        
-        if diff_seconds <= 180:
-            connection_status = "Connected Live 🟢"
-        else:
-            connection_status = f"Offline ({int(diff_seconds/60)}m ago) ⚠️"
-    except:
-        connection_status = "Connected Live 🟢"
-
-
-# Estimating Vitals based on RSSI variance
-#heart_rate = int(75 + abs(rssi_val + 70) * 1.5)
-#bp_systolic = int(120 + (rssi_val + 70) * 0.8)
-#bp_diastolic = int(80 + (rssi_val + 70) * 0.4)
-
-# Scaled and Bounded Vitals Estimation based on RSSI variance
-# (سگنل کے زیادہ مضبوط ہونے پر بھی ویلیوز نارمل اور حقیقت پسندانہ رہیں گی)
-variance = abs(rssi_val + 70) * 0.2  # یہاں فیکٹر 1.5 سے کم کر کے 0.2 کر دیا گیا ہے
-
-heart_rate = int(max(60, min(120, 75 + variance)))
-bp_systolic = int(max(100, min(150, 120 + variance * 0.5)))
-bp_diastolic = int(max(60, min(95, 80 + variance * 0.3)))
 
 # UI Metrics Display with Real Status
 col1, col2, col3, col4 = st.columns(4)
@@ -162,32 +136,14 @@ with col2:
 with col3:
     st.metric(label="🩸 Est. Blood Pressure", value=f"{bp_systolic}/{bp_diastolic} mmHg", delta="Stable")
 with col4:
-    st.metric(label="🔋 System Status", value=connection_status, delta=f"ID: {CHANNEL_ID}")
+    st.metric(label="🔋 System Status", value=connection_status, delta=f"ID: {FIXED_CHANNEL_ID}")
 
-# Alert Box (Only trigger if device is truly connected live and signal variance is detected)
-
+# Alert Box
 status_placeholder = st.empty()
 if "Connected Live" in connection_status and abs(rssi_val - (-70)) > 5.0:
     status_placeholder.error("🚨 **CRITICAL ALERT:** ملبے میں جاندار کی موجودگی اور جسمانی حرکات ریکارڈ ہوئی ہیں!")
 else:
     status_placeholder.success("🟢 **STATUS:** زون محفوظ ہے / سگنل نارمل ہیں۔ (ڈیوائس آفت سے محفوظ زون پر مانیٹر کر رہی ہے)")
-
-
-# --- Fetch Multiple Live Feeds for Real-time Graph ---
-@st.cache_data(ttl=2)
-def get_recent_history():
-    try:
-        res = requests.get(f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=10")
-        data = res.json()
-        feeds = data['feeds']
-        signals = [float(f['field1']) for f in feeds if f['field1'] is not None]
-        if signals:
-            return signals
-    except:
-        pass
-    return [rssi_val]
-
-historical_signals = get_recent_history()
 
 # --- SECTION 1: Live RSSI Waveform ---
 if mode == "🌍 Disaster Rescue & Vitals":
@@ -201,7 +157,7 @@ if mode == "🌍 Disaster Rescue & Vitals":
 elif mode == "📍 Spatial Grid & Target Mapping":
     st.subheader("📍 Spatial Grid & Target Mapping (Live Worker)")
     st.markdown("Coordinates fetched live from Mobile Worker ESP-32 (Channel 3579370).")
-    
+
     grid_data = pd.DataFrame({
         'X': [worker_x],
         'Y': [worker_y],
@@ -214,7 +170,7 @@ elif mode == "📍 Spatial Grid & Target Mapping":
 elif mode == "🏠 Smart Home Security":
     st.subheader("🏠 Home Security Intrusion Detector")
     st.info("سیکیورٹی موڈ فعال ہے: گھر کے اندر غیر معمولی حرکت اور وائی فائی ڈسٹربنس پر نظر رکھی جا رہی ہے۔")
-    
+
     sec_val = float(rssi_val) if rssi_val else -70.0
     security_data = pd.DataFrame({
         "Security Noise Level": [2, 4, 1, 5, 3, abs(sec_val + 75)]
