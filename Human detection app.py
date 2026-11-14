@@ -101,7 +101,7 @@ else:
 @st.cache_data(ttl=2)
 def get_recent_history():
     try:
-        res = requests.get(f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?results=10")
+        res = requests.get(f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=10")
         data = res.json()
         feeds = data['feeds']
         signals = [float(f['field1']) for f in feeds if f['field1'] is not None]
