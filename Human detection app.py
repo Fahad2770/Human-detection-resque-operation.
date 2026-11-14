@@ -30,18 +30,13 @@ if lang == "اردو":
 else:
     st.title("🚨 Live Disaster Rescue & Vitals Monitor")
     st.markdown("### Sub-debris human signal tracking, vitals & spatial mapping")
-import datetime
+ import datetime
+from datetime import datetime, timezone
+import requests
 
 # Fetch Live Data and Timestamp from ThingSpeak Channel 3579002
-# اپنی Read API Key یہاں لکھیں (جیسے کہ نیچے مثال دی گئی ہے)
 READ_API_KEY = "PVZCSGAU291YE5CF"
 CHANNEL_ID = "3579002"
-
-# 1. Status URL with Read API Key
-url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=1"
-
-# 2. History URL inside get_recent_history function:
-res = requests.get(f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=10")
 
 url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=1"
 
@@ -54,7 +49,7 @@ def get_thingspeak_status():
         if feeds:
             latest = feeds[-1]
             val = float(latest['field1'])
-            created_at = latest['created_at'] # جب آخری بار ڈیٹا آیا
+            created_at = latest['created_at']  # جب آخری بار ڈیٹا آیا
             return val, created_at
     except:
         pass
@@ -62,11 +57,21 @@ def get_thingspeak_status():
 
 rssi_val, last_time = get_thingspeak_status()
 
-# Check if device is truly connected (Agar pichle kuch minutes me data aaya hy)
+# Real connection status check based on timestamp within last 3 minutes
 connection_status = "Disconnected ❌"
 if last_time:
-    # ThingSpeak time format parsing can be checked or simply treated as active if fetched
-    connection_status = "Connected Live 🟢"
+    try:
+        last_dt = datetime.strptime(last_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        current_dt = datetime.now(timezone.utc)
+        diff_seconds = (current_dt - last_dt).total_seconds()
+        
+        if diff_seconds <= 180:
+            connection_status = "Connected Live 🟢"
+        else:
+            connection_status = f"Offline ({int(diff_seconds/60)}m ago) ⚠️"
+    except:
+        connection_status = "Connected Live 🟢"
+
 
 # Estimating Vitals based on RSSI variance
 heart_rate = int(75 + abs(rssi_val + 70) * 1.5)
