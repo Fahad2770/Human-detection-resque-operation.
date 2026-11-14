@@ -1,21 +1,36 @@
 import streamlit as st
 import pandas as pd
 import requests
+from streamlit.components.v1 import html
 
-# Page Configuration for Mobile and Desktop
+# Page Configuration
 st.set_page_config(
     page_title="Dual-Purpose Wi-Fi Rescue & Vital Hub",
     page_icon="🚨",
     layout="wide"
 )
 
-# Load External CSS for Professional UI
-def local_css(file_name):
+# Function to load external CSS file
+def load_css(file_name):
     try:
         with open(file_name, "r") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except:
         pass
+
+load_css("style.css")
+
+# Function to load and render external HTML file (जैसे index.html)
+def load_html(file_name):
+    try:
+        with open(file_name, "r") as f:
+            html_content = f.read()
+            html(html_content, height=150, scrolling=False)
+    except:
+        pass
+
+# Optional: Display HTML Welcome Banner at the top of the sidebar or main page
+# load_html("index.html")
 
 local_css("style.css")
 
