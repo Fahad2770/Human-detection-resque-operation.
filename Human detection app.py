@@ -4,96 +4,94 @@ import numpy as np
 import time
 import random
 
-st.set_page_config(page_title="Global Disaster Rescue Wi-Fi Life Detector", page_icon="🚨", layout="wide")
+st.set_page_config(page_title="Dual-Purpose Wi-Fi Sensing & Rescue Hub", page_icon="🚨", layout="wide")
 
-# Sidebar Language & Controls
-st.sidebar.title("🌍 Rescue Control Panel")
+# Sidebar Language & Mode Selection
+st.sidebar.title("🛡️ Control Center / کنٹرول سینٹر")
+mode = st.sidebar.selectbox("Select Mode / موڈ منتخب کریں", ["🌍 Disaster Rescue Mode (زلزلے سے بچاؤ)", "🏠 Smart Home Security (گھر کی سیکیورٹی)"])
 lang = st.sidebar.selectbox("Language / زبان", ["English", "اردو"])
 
 if lang == "اردو":
-    st.title("🚨 بین الاقوامی ڈیزاسٹر ریسکیو: وائی فائی لائف سائن مانیٹر")
-    st.markdown("### ملبے تلے انسانوں کی تلاش کا ایڈوانسڈ آئی او ٹی ڈیش بورڈ")
+    if "Disaster" in mode:
+        st.title("🚨 ڈیزاسٹر ریسکیو: ملبے تلے انسانوں کی تلاش")
+        st.markdown("### وائی فائی RSSI سگنلز کے ذریعے جانداروں کی حرکت (Breathing Motion) کی شناخت")
+    else:
+        st.title("🏠 سمارٹ ہوم سیکیورٹی: انٹروڈر وائی فائی مانیٹر")
+        st.markdown("### گھر میں نامعلوم شخص یا چور کی دراندازی کا بغیر کیمرے کے پتا لگانا")
 else:
-    st.title("🚨 Global Disaster Rescue: Wi-Fi Life Sign Monitor")
-    st.markdown("### Advanced Sub-Debris Human Movement & Triangulation Dashboard")
+    if "Disaster" in mode:
+        st.title("🚨 Disaster Rescue: Sub-Debris Human Detector")
+        st.markdown("### Detecting human respiration & micro-movements via Wi-Fi RSSI variance")
+    else:
+        st.title("🏠 Smart Home Security: Intruder Detection")
+        st.markdown("### Invisible Wi-Fi wave interference monitoring for unauthorized access")
 
 sensitivity = st.sidebar.slider("Detection Sensitivity / حساسیت", 1.0, 10.0, 4.0)
-nodes_count = st.sidebar.selectbox("Active ESP32 Nodes / نوڈز کی تعداد", [1, 2, 3])
 
-# Main layout metrics columns
+# Main Dashboard Metrics
 col1, col2, col3 = st.columns(3)
 
-def calculate_distance(rssi, tx_power=-50, n=2.5):
-    # Path Loss Formula: d = 10 ^ ((TxPower - RSSI) / (10 * n))
-    try:
-        return round(10 ** ((tx_power - rssi) / (10 * n)), 2)
-    except:
-        return 0.5
-
-# Mock real-time RSSI data generation
 @st.cache_data(ttl=1)
-def get_live_node_data():
-    base_rssi = -70 + random.uniform(-3, 3)
-    fluctuation = random.choice([0, 0, 0, 14, -14, 0]) if random.random() > 0.7 else random.uniform(-2, 2)
-    current_rssi = base_rssi + fluctuation
-    return current_rssi
+def get_simulated_rssi():
+    base = -70 if "Disaster" in mode else -65
+    noise = random.choice([0, 0, 0, 15, -15, 0]) if random.random() > 0.75 else random.uniform(-2, 2)
+    return base + noise
 
-rssi_val = get_live_node_data()
-distance_m = calculate_distance(rssi_val)
+rssi_val = get_simulated_rssi()
+distance_m = round(10 ** ((-50 - rssi_val) / (10 * 2.5)), 2)
 
 with col1:
-    st.metric(label="📶 Signal Strength (RSSI)", value=f"{rssi_val:.1f} dBm", delta="Node 1 Active")
+    st.metric(label="📶 Signal Strength (RSSI)", value=f"{rssi_val:.1f} dBm", delta="Node Active")
 with col2:
-    st.metric(label="📍 Estimated Depth / Distance", value=f"{distance_m} Meters", delta="Under Debris")
+    label_text = "Estimated Depth / فاصلہ" if "Disaster" in mode else "Proximity Range"
+    st.metric(label=label_text, value=f"{distance_m} Meters", delta="Real-time")
 with col3:
-    battery_level = 88
-    st.metric(label="🔋 ESP32 Battery Status", value=f"{battery_level}%", delta="Stable")
+    st.metric(label="🔋 Device Health", value="94% Stable", delta="Battery OK")
 
-# Status & Alert Box
+# Alert Box
 status_placeholder = st.empty()
 
 if abs(rssi_val - (-70)) > 6.0:
-    status_placeholder.error("🚨 **HIGH ALERT:** Malbe k neechy saans ya harkat mehsoos ho rahi hai! (Sub-Debris Micro-Motion Detected)")
+    if "Disaster" in mode:
+        status_placeholder.error("🚨 **HIGH ALERT:** ملبے کے نیچے حرکت یا سانس لینے کے آثار محسوس ہوئے ہیں!")
+    else:
+        status_placeholder.error("🚨 **SECURITY ALERT:** گھر کے احاطے میں مشکوک حرکت یا دراندازی کی لہریں ریکارڈ ہوئیں!")
 else:
-    status_placeholder.success("🟢 **STATUS:** Area Clear / Normal Background Wi-Fi Signals.")
+    status_placeholder.success("🟢 **STATUS:** تمام زونز محفوظ ہیں / کوئی غیر معمولی مداخلت نہیں ملی۔")
 
-# Visualization Tabs
-tab1, tab2, tab3 = st.tabs(["📊 RSSI Waveform & Filter", "🗺️ Multi-Node Triangulation & Posture", "📥 Export & System Logs"])
+# Tabs for Analytics
+tab1, tab2, tab3 = st.tabs(["📊 Live Waveform & Noise Filter", "🗺️ Position & Posture Mapping", "📥 Export Logs"])
 
 with tab1:
-    st.subheader("Real-time Filtered RSSI Signal (Noise Removed)")
-    chart_data = pd.DataFrame(np.random.randn(20, 1) * 3 - 70, columns=["Filtered RSSI"])
+    st.subheader("Filtered Wi-Fi Signal Strength (dBm)")
+    chart_data = pd.DataFrame(np.random.randn(20, 1) * 3 - 70, columns=["RSSI Signal"])
     st.line_chart(chart_data)
 
 with tab2:
-    st.subheader("Sub-Debris Human Posture & Triangulation Map")
-    st.markdown("The map below estimates the coordinates (X, Y) of the trapped victim based on perimeter nodes and RF variance.")
-    
-    # Plotting a scatter map for triangulation nodes and trapped human posture point
+    st.subheader("Spatial Grid & Target Mapping")
+    st.markdown("Coordinates calculated via attenuation and multi-node triangulation.")
     map_data = pd.DataFrame({
-        'X': [0, 10, 5, 5.2],
-        'Y': [0, 0, 10, 4.5],
-        'Type': ['ESP32 Node A', 'ESP32 Node B', 'ESP32 Node C', 'Trapped Victim (Estimated Posture)'],
+        'X': [2, 8, 5, 5.3],
+        'Y': [2, 2, 8, 4.2],
+        'Type': ['Node 1', 'Node 2', 'Node 3', 'Target / Intruder Position'],
         'Color': ['blue', 'blue', 'blue', 'red']
     })
-    st.scatter_chart(map_data, x='X', y='Y', color='Color', size=200)
-    st.info("🔴 Red marker indicates the estimated human position under concrete rubble calculated via signal attenuation.")
+    st.scatter_chart(map_data, x='X', y='Y', color='Color', size=250)
 
 with tab3:
-    st.subheader("System Telemetry & Data Export")
+    st.subheader("System Logs & CSV Export")
     log_df = pd.DataFrame({
         "Timestamp": [time.strftime("%H:%M:%S")],
-        "Node_ID": ["ESP32_NODE_01"],
+        "Mode": [mode],
         "RSSI": [rssi_val],
-        "Distance_m": [distance_m],
         "Status": ["Alert" if abs(rssi_val - (-70)) > 6.0 else "Normal"]
     })
     st.dataframe(log_df)
     
     csv = log_df.to_csv(index=False).encode('utf-8')
     st.download_button(
-        label="📥 Download Rescue Log (CSV)",
+        label="📥 Download System Report (CSV)",
         data=csv,
-        file_name='rescue_telemetry_log.csv',
+        file_name='iot_sensor_report.csv',
         mime='text/csv',
     )
