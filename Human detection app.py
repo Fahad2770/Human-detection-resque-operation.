@@ -76,23 +76,6 @@ with col3:
 with col4:
     st.metric(label="🔋 System Status", value=connection_status, delta=f"ID: {CHANNEL_ID}")
 
-# Estimating Vitals based on RSSI variance
-heart_rate = int(75 + abs(rssi_val + 70) * 1.5)
-bp_systolic = int(120 + (rssi_val + 70) * 0.8)
-bp_diastolic = int(80 + (rssi_val + 70) * 0.4)
-
-# UI Metrics Display
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(label="📶 Wi-Fi RSSI", value=f"{rssi_val:.1f} dBm", delta="Live Cloud")
-with col2:
-    st.metric(label="❤️ Est. Heart Rate", value=f"{heart_rate} BPM", delta="Vitals Active")
-with col3:
-    st.metric(label="🩸 Est. Blood Pressure", value=f"{bp_systolic}/{bp_diastolic} mmHg", delta="Stable")
-with col4:
-    st.metric(label="🔋 System Status", value="Connected", delta="Channel 3579002")
-
 # Alert Box
 status_placeholder = st.empty()
 if abs(rssi_val - (-70)) > 5.0:
