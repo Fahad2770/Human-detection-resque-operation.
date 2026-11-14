@@ -33,8 +33,17 @@ else:
 import datetime
 
 # Fetch Live Data and Timestamp from ThingSpeak Channel 3579002
+# اپنی Read API Key یہاں لکھیں (جیسے کہ نیچے مثال دی گئی ہے)
+READ_API_KEY = "PVZCSGAU291YE5CF"
 CHANNEL_ID = "3579002"
-url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?results=1"
+
+# 1. Status URL with Read API Key
+url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=1"
+
+# 2. History URL inside get_recent_history function:
+res = requests.get(f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=10")
+
+url = f"https://api.thingspeak.com/channels/{CHANNEL_ID}/feeds.json?api_key={READ_API_KEY}&results=1"
 
 @st.cache_data(ttl=2)
 def get_thingspeak_status():
