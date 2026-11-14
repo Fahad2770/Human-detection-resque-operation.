@@ -63,6 +63,8 @@ def get_thingspeak_status():
 
 rssi_val, last_time = get_thingspeak_status()
 
+
+
 # 2. Fetch Mobile Worker Channel Coordinates (X 
 
 # --- SECTION 2: Spatial Grid & Target Mapping (Mobile Worker Node) ---
@@ -157,24 +159,24 @@ if mode == "🌍 Disaster Rescue & Vitals":
 
 # --- SECTION 2: Spatial Grid & Target Mapping ---
 elif mode == "📍 Spatial Grid & Target Mapping":
-    st.subheader("📍 Spatial Grid & Target Mapping")
-    st.markdown("Coordinates calculated via attenuation and multi-node triangulation.")
+    st.subheader("📍 Spatial Grid & Target Mapping (Live Worker)")
+    st.markdown("Coordinates fetched live from Mobile Worker ESP-32 (Channel 3579370).")
     
-    # Grid Target Mapping Data (X and Y coordinates)
     grid_data = pd.DataFrame({
-        'X': [2, 5, 8],
-        'Y': [2, 4, 2],
-        'Color': ['blue', 'blue', 'red']
+        'X': [worker_x],
+        'Y': [worker_y],
+        'Color': ['red']
     })
-    
-    # Scatter plot for grid mapping
     st.scatter_chart(grid_data, x='X', y='Y', color='Color', size=150)
+    st.success(f"📌 **Current Worker Position ->** X-Axis: {worker_x} | Y-Axis: {worker_y}")
 
 # --- SECTION 3: Smart Home Security ---
 elif mode == "🏠 Smart Home Security":
     st.subheader("🏠 Home Security Intrusion Detector")
     st.info("سیکیورٹی موڈ فعال ہے: گھر کے اندر غیر معمولی حرکت اور وائی فائی ڈسٹربنس پر نظر رکھی جا رہی ہے۔")
+    
+    sec_val = float(rssi_val) if rssi_val else -70.0
     security_data = pd.DataFrame({
-        "Security Noise Level": [2, 4, 1, 5, 3, rssi_val+75]
+        "Security Noise Level": [2, 4, 1, 5, 3, abs(sec_val + 75)]
     })
     st.area_chart(security_data)
