@@ -74,9 +74,17 @@ if last_time:
 
 
 # Estimating Vitals based on RSSI variance
-heart_rate = int(75 + abs(rssi_val + 70) * 1.5)
-bp_systolic = int(120 + (rssi_val + 70) * 0.8)
-bp_diastolic = int(80 + (rssi_val + 70) * 0.4)
+#heart_rate = int(75 + abs(rssi_val + 70) * 1.5)
+#bp_systolic = int(120 + (rssi_val + 70) * 0.8)
+#bp_diastolic = int(80 + (rssi_val + 70) * 0.4)
+
+# Scaled and Bounded Vitals Estimation based on RSSI variance
+# (سگنل کے زیادہ مضبوط ہونے پر بھی ویلیوز نارمل اور حقیقت پسندانہ رہیں گی)
+variance = abs(rssi_val + 70) * 0.2  # یہاں فیکٹر 1.5 سے کم کر کے 0.2 کر دیا گیا ہے
+
+heart_rate = int(max(60, min(120, 75 + variance)))
+bp_systolic = int(max(100, min(150, 120 + variance * 0.5)))
+bp_diastolic = int(max(60, min(95, 80 + variance * 0.3)))
 
 # UI Metrics Display with Real Status
 col1, col2, col3, col4 = st.columns(4)
