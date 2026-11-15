@@ -1,36 +1,6 @@
-import streamlit as st
-import pandas as pd
-import requests
+import datetime
 from datetime import datetime, timezone
-
-# Page Configuration for Mobile and Desktop
-st.set_page_config(
-    page_title="Dual-Purpose Wi-Fi Rescue & Vital Hub",
-    page_icon="🚨",
-    layout="wide"
-)
-
-# Load External CSS Safely
-def load_css(file_name):
-    try:
-        with open(file_name, "r") as f:
-            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-    except:
-        pass
-
-load_css("style.css")
-
-# Sidebar Control Center
-st.sidebar.title("🛡️ Control Center / کنٹرول سینٹر")
-mode = st.sidebar.selectbox("Select Mode", ["🌍 Disaster Rescue & Vitals", "📍 Spatial Grid & Target Mapping", "🏠 Smart Home Security"])
-lang = st.sidebar.selectbox("Language", ["English", "اردو"])
-
-if lang == "اردو":
-    st.title("🚨 لائیو ڈیزاسٹر ریسکیو اور وائٹلز مانیٹر")
-    st.markdown("### ملبے تلے دبے انسان کی سگنل بیسڈ نبض، بلڈ پریشر اور پوزیشن کی نگرانی")
-else:
-    st.title("🚨 Live Disaster Rescue & Vitals Monitor")
-    st.markdown("### Sub-debris human signal tracking, vitals & spatial mapping")
+import requests
 
 # --- Dual-Channel Configuration ---
 FIXED_CHANNEL_ID = "3579002"
@@ -46,16 +16,15 @@ mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.jso
 @st.cache_data(ttl=2)
 def get_thingspeak_status():
     try:
-        response = requests.get(fixed_url, timeout=10)
-        response.raise_for_status()
+        response = requests.get(fixed_url)
         data = response.json()
-        feeds = data.get("feeds", [])
+        feeds = data['feeds']
         if feeds:
             latest = feeds[-1]
-            field1 = latest.get("field1")
-            if field1 is not None and field1 != "":
-                return float(field1), latest.get("created_at")
-    except Exception:
+            val = float(latest['field1'])
+            created_at = latest['created_at']
+            return val, created_at
+    except:
         pass
     return -70.0, None
 
@@ -69,7 +38,7 @@ if last_time:
         last_dt = datetime.fromisoformat(clean_time)
         current_dt = datetime.now(timezone.utc)
         diff_seconds = (current_dt - last_dt).total_seconds()
-
+        
         if diff_seconds <= 120:
             connection_status = "Connected Live 🟢"
         else:
@@ -81,16 +50,15 @@ if last_time:
 @st.cache_data(ttl=2)
 def get_mobile_coordinates():
     try:
-        response = requests.get(mobile_url, timeout=10)
-        response.raise_for_status()
+        response = requests.get(mobile_url)
         data = response.json()
-        feeds = data.get("feeds", [])
+        feeds = data['feeds']
         if feeds:
             latest = feeds[-1]
-            x_val = float(latest.get("field1", 2.0))
-            y_val = float(latest.get("field2", 2.0))
+            x_val = float(latest.get('field1', 2.0))
+            y_val = float(latest.get('field2', 2.0))
             return x_val, y_val
-    except Exception:
+    except:
         pass
     return 2.0, 2.0
 
@@ -106,44 +74,17 @@ bp_diastolic = int(max(60, min(95, 80 + variance * 0.3)))
 @st.cache_data(ttl=2)
 def get_recent_history():
     try:
-        res = requests.get(f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=10", timeout=10)
-        res.raise_for_status()
+        res = requests.get(f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=10")
         data = res.json()
-        feeds = data.get("feeds", [])
-        signals = []
-        for feed in feeds:
-            field1 = feed.get("field1")
-            if field1 is not None and field1 != "":
-                try:
-                    signals.append(float(field1))
-                except (TypeError, ValueError):
-                    continue
+        feeds = data['feeds']
+        signals = [float(f['field1']) for f in feeds if f.get('field1') is not None and f.get('field1') != ""]
         if signals:
             return signals
-    except Exception:
+    except:
         pass
     return [rssi_val]
 
 historical_signals = get_recent_history()
-
-# UI Metrics Display with Real Status
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.metric(label="📶 Wi-Fi RSSI", value=f"{rssi_val:.1f} dBm", delta="Cloud Sync")
-with col2:
-    st.metric(label="❤️ Est. Heart Rate", value=f"{heart_rate} BPM", delta="Vitals Active")
-with col3:
-    st.metric(label="🩸 Est. Blood Pressure", value=f"{bp_systolic}/{bp_diastolic} mmHg", delta="Stable")
-with col4:
-    st.metric(label="🔋 System Status", value=connection_status, delta=f"ID: {FIXED_CHANNEL_ID}")
-
-# Alert Box
-status_placeholder = st.empty()
-if "Connected Live" in connection_status and abs(rssi_val - (-70)) > 5.0:
-    status_placeholder.error("🚨 **CRITICAL ALERT:** ملبے میں جاندار کی موجودگی اور جسمانی حرکات ریکارڈ ہوئی ہیں!")
-else:
-    status_placeholder.success("🟢 **STATUS:** زون محفوظ ہے / سگنل نارمل ہیں۔ (ڈیوائس آفت سے محفوظ زون پر مانیٹر کر رہی ہے)")
 
 # --- SECTION 1: Live RSSI Waveform ---
 if mode == "🌍 Disaster Rescue & Vitals":
