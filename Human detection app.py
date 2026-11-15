@@ -95,6 +95,16 @@ def get_recent_history():
 
 historical_signals = get_recent_history()
 
+# --- Sidebar Control Center ---
+st.sidebar.title("🛡️ Control Center / کنٹرول سینٹر")
+mode = st.sidebar.selectbox("Select Mode", [
+    "🌍 Disaster Rescue & Vitals",
+    "📍 Spatial Grid & Target Mapping",
+    "🏠 Smart Home Security"
+])
+lang = st.sidebar.selectbox("Language", ["English", "اردو"])
+
+
 # --- SECTION 1: Live RSSI Waveform ---
 if mode == "🌍 Disaster Rescue & Vitals":
     st.subheader("📊 Filtered Wi-Fi Signal Strength (dBm)")
