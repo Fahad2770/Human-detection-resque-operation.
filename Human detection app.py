@@ -104,14 +104,19 @@ mode = st.sidebar.selectbox("Select Mode", [
 ])
 lang = st.sidebar.selectbox("Language", ["English", "اردو"])
 
-
 # --- SECTION 1: Live RSSI Waveform ---
 if mode == "🌍 Disaster Rescue & Vitals":
     st.subheader("📊 Filtered Wi-Fi Signal Strength (dBm)")
+    
+    # RSSI کی ویلیوز کو گراف کے لیے بہتر بنانے کے لیے abs استعمال کرتے ہیں
+    cleaned_signals = [abs(val) for val in historical_signals]
+    
     chart_data = pd.DataFrame({
-        "RSSI Signal": historical_signals
+        "RSSI Signal (Magnitude)": cleaned_signals
     })
     st.line_chart(chart_data)
+    
+    st.info(f"📡 Current Live RSSI: {rssi_val} dBm | Status: {connection_status}")
 
 # --- SECTION 2: Spatial Grid & Target Mapping ---
 elif mode == "📍 Spatial Grid & Target Mapping":
