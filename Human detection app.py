@@ -1,6 +1,8 @@
+import streamlit as st
+import pandas as pd
+import requests
 import datetime
 from datetime import datetime, timezone
-import requests
 
 # --- Dual-Channel Configuration ---
 FIXED_CHANNEL_ID = "3579002"
@@ -11,6 +13,13 @@ READ_API_KEY_MOBILE = "H696MBRW1ASMZZ3W"
 
 fixed_url = f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=1"
 mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_MOBILE}&results=1"
+
+# Page Configuration
+st.set_page_config(
+    page_title="Dual-Purpose Wi-Fi Rescue & Vital Hub",
+    page_icon="🚨",
+    layout="wide"
+)
 
 # 1. Fetch Fixed Channel Status (Vitals & RSSI)
 @st.cache_data(ttl=2)
