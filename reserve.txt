@@ -96,12 +96,6 @@ def get_mobile_coordinates():
 
 worker_x, worker_y = get_mobile_coordinates()
 
-# Scaled and Bounded Vitals Estimation based on RSSI variance
-variance = abs(rssi_val + 70) * 0.2
-heart_rate = int(max(60, min(120, 75 + variance)))
-bp_systolic = int(max(100, min(150, 120 + variance * 0.5)))
-bp_diastolic = int(max(60, min(95, 80 + variance * 0.3)))
-
 # Fetch Multiple Feeds for Real-time Graph Safely
 @st.cache_data(ttl=2)
 def get_recent_history():
@@ -121,22 +115,6 @@ historical_signals = get_recent_history()
 
 
 # 2. Fetch Mobile Worker Channel Coordinates (X 
-
-
-# Real connection status check based on timestamp within last 3 minutes
-connection_status = "Disconnected ❌"
-if last_time:
-    try:
-        last_dt = datetime.strptime(last_time, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
-        current_dt = datetime.now(timezone.utc)
-        diff_seconds = (current_dt - last_dt).total_seconds()
-
-        if diff_seconds <= 180:
-            connection_status = "Connected Live 🟢"
-        else:
-            connection_status = f"Offline ({int(diff_seconds/60)}m ago) ⚠️"
-    except:
-        connection_status = "Connected Live 🟢"
 
 
 # Estimating Vitals based on RSSI variance
