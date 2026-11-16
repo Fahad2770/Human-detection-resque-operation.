@@ -1,10 +1,18 @@
 import streamlit as st
 import pandas as pd
 import requests
-import math
+import datetime
+from datetime import datetime, timezone
+from streamlit_autorefresh import st_autorefresh
 
-st.title("📍 Advanced Dual-Node Spatial Mapping & Proximity")
-st.markdown("Combining Fixed Node (3579002) RSSI variance and Mobile Node (3579370) coordinates for high accuracy.")
+st.set_page_config(page_title="Live Dual-Node Mapping", layout="wide")
+
+# --- Auto-Refresh Configuration ---
+# یہ ہر 3 سیکنڈ (3000 ملی سیکنڈ) بعد خود بخود پیج کو ریفریش کرے گا
+count = st_autorefresh(interval=3000, limit=None, key="live_spatial_refresh")
+
+st.title("📍 Real-Time Live Dual-Node Spatial Mapping")
+st.markdown(f"### ⚡ لائیو آٹو ریفریش فعال ہے (اپ ڈیٹ کاؤਂٹر: `{count}`)")
 
 # Channel Configurations
 FIXED_CHANNEL_ID = "3579002"
@@ -15,65 +23,73 @@ MOBILE_CHANNEL_ID = "3579370"
 READ_API_KEY_MOBILE = "H696MBRW1ASMZZ3W"
 mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_MOBILE}&results=1"
 
-# 1. Fetch Fixed Node RSSI (For Distance & Signal Density)
-@st.cache_data(ttl=2)
-def get_fixed_rssi():
+# 1. Fetch Fixed Node RSSI
+def fetch_fixed_node():
     try:
-        res = requests.get(fixed_url)
-        data = res.json()
-        feeds = data['feeds']
-        if feeds:
-            return float(feeds[-1]['field1'])
+        response = requests.get(fixed_url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            feeds = data.get('feeds', [])
+            if feeds:
+                latest = feeds[-1]
+                val = float(latest.get('field1', -70.0))
+                time_str = latest.get('created_at', None)
+                return val, time_str, "Online 🟢"
     except:
         pass
-    return -70.0
+    return -70.0, None, "Offline 🔴"
 
-# 2. Fetch Mobile Node Coordinates (X and Y from Field 1 & 2)
-@st.cache_data(ttl=2)
-def get_mobile_coords():
+# 2. Fetch Mobile Worker Node Coordinates
+def fetch_mobile_node():
     try:
-        res = requests.get(mobile_url)
-        data = res.json()
-        feeds = data['feeds']
-        if feeds:
-            latest = feeds[-1]
-            x = float(latest.get('field1', 2.0))
-            y = float(latest.get('field2', 2.0))
-            return x, y
+        response = requests.get(mobile_url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            feeds = data.get('feeds', [])
+            if feeds:
+                latest = feeds[-1]
+                x = float(latest.get('field1', 2.0))
+                y = float(latest.get('field2', 2.0))
+                time_str = latest.get('created_at', None)
+                return x, y, time_str, "Online 🟢"
     except:
         pass
-    return 2.0, 2.0
+    return 2.0, 2.0, None, "Offline 🔴"
 
-fixed_rssi = get_fixed_rssi()
-base_x, base_y = get_mobile_coords()
+# Fetching Live Data
+fixed_rssi, fixed_time, fixed_status = fetch_fixed_node()
+worker_x, worker_y, mobile_time, mobile_status = fetch_mobile_node()
 
-# --- Smart Dual-Node Distance Calculation (Path-Loss Model) ---
-# Formula: distance = 10 ^ ((Measured Power - RSSI) / (10 * n))
-measured_power = -50  # 1 meter reference RSSI
-n = 2.5               # Environmental path-loss constant for disaster/walls
+# Distance & Fusion Logic
+measured_power = -50
+n = 2.5
 safe_rssi = fixed_rssi if fixed_rssi < 0 else -70.0
 estimated_distance = 10 ** ((measured_power - safe_rssi) / (10 * n))
 
-# Dynamic Coordinate Fusion (Combining both nodes to refine position)
-adjusted_x = base_x + (estimated_distance * 0.05)
-adjusted_y = base_y + (estimated_distance * 0.05)
+adjusted_x = worker_x + (estimated_distance * 0.05)
+adjusted_y = worker_y + (estimated_distance * 0.05)
 
 # Metrics Display
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("Fixed Node RSSI", f"{fixed_rssi} dBm")
+    st.metric("Fixed Node RSSI", f"{fixed_rssi} dBm", fixed_status)
 with col2:
-    st.metric("Est. Proximity Distance", f"{estimated_distance:.2f} meters")
+    st.metric("Mobile Coordinates", f"X: {worker_x} | Y: {worker_y}", mobile_status)
 with col3:
-    st.metric("Refined Position", f"X: {adjusted_x:.1f}, Y: {adjusted_y:.1f}")
+    st.metric("Calculated Distance", f"{estimated_distance:.2f} m")
+with col4:
+    st.metric("Refined Position", f"({adjusted_x:.1f}, {adjusted_y:.1f})")
 
-# Multi-Point Scatter Plot showing Fixed Anchor, Mobile Worker, and Estimated Target
+st.markdown("---")
+
+# Scatter Plot
 grid_data = pd.DataFrame({
-    'X': [0.0, base_x, adjusted_x],
-    'Y': [0.0, base_y, adjusted_y],
-    'Node Type': ['Fixed Anchor (Node 1)', 'Mobile Worker (Node 2)', 'Estimated Target / Source']
+    'X': [0.0, worker_x, adjusted_x],
+    'Y': [0.0, worker_y, adjusted_y],
+    'Node Type': ['Fixed Anchor (Node 1)', 'Mobile Worker (Node 2)', 'Fused Target Location']
 })
 
-st.scatter_chart(grid_data, x='X', y='Y', color='Node Type', size=200)
+st.subheader("🗺️ Live Spatial Coordinate Mapping (Auto-Updating)")
+st.scatter_chart(grid_data, x='X', y='Y', color='Node Type', size=250)
 
-st.success(f"📌 **Dual-Node Fusion Active:** دونوں ESP-32 کے ڈیٹا کو ملا کر لوکیشن کو مزید درست (Accurate) کر دیا گیا ہے!")
+st.success("🚀 **Live Stream Active:** یہ پیج اب ہر 3 سیکنڈ بعد خود بخود ThingSpeak سے نیا ڈیٹا اٹھا کر اسکرین کو لائیو اپ ڈیٹ کر رہا ہے!")
