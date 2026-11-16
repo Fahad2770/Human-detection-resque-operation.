@@ -4,14 +4,13 @@ import requests
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Cross-Grid Intersection Mapping", layout="wide")
+st.set_page_config(page_title="Multi-Target Grid Mapping", layout="wide")
 
 # --- Auto-Refresh ---
-count = st_autorefresh(interval=3000, limit=None, key="cross_grid_refresh")
+count = st_autorefresh(interval=3000, limit=None, key="multi_target_refresh")
 
-st.add_rows if hasattr(st, 'add_rows') else None
-st.title("📍 True Cross-Axis Grid & Target Intersection")
-st.markdown(f"### 🌐 ESP-1 (X-Axis) اور ESP-2 (Y-Axis) کی لائیو کراس میپنگ (کاؤنٹر: `{count}`)")
+st.title("📍 Multi-Target Disaster Rescue & Grid Mapping")
+st.markdown(f"### 🌐 ملبے کے نیچے موجود تمام افراد اور ورکرز کی لائیو ملٹی پوائنٹ ٹریکنگ (کاؤنٹر: `{count}`)")
 
 # Channel Configurations
 FIXED_CHANNEL_ID = "3579002"
@@ -58,13 +57,19 @@ n = 2.5
 safe_rssi_1 = rssi_1 if rssi_1 < 0 else -70.0
 safe_rssi_2 = rssi_2 if rssi_2 < 0 else -70.0
 
-# ESP-1 سے فاصلہ (حتّیٰ الامکان حدود میں: 0 سے 10 میٹر)
 dist_x = 10 ** ((measured_power - safe_rssi_1) / (10 * n))
 dist_x = max(0.5, min(10.0, dist_x))
 
-# ESP-2 سے فاصلہ (حتیٰ الامکان حدود میں: 0 سے 10 میٹر)
 dist_y = 10 ** ((measured_power - safe_rssi_2) / (10 * n))
 dist_y = max(0.5, min(10.0, dist_y))
+
+# فرض کریں ہمارے پاس سسٹم میں ایک سے زیادہ متاثرہ افراد (Targets) کے ڈیٹا پوائنٹس ہیں
+# آپ ان کو مزید ESP بورڈز یا ThingSpeak کے الگ الگ 필드 (Field 2, Field 3) سے بھی جوڑ سکتے ہیں
+targets = [
+    {"name": "🎯 Victim / Target Alpha", "x": dist_x, "y": dist_y, "color": "red", "size": 22},
+    {"name": "⚠️ Victim / Target Beta (Zone 2)", "x": min(9.0, dist_x + 2.5), "y": min(9.0, dist_y + 1.8), "color": "darkorange", "size": 18},
+    {"name": "👷 Rescue Worker (Mobile)", "x": 2.0, "y": 8.0, "color": "dodgerblue", "size": 16}
+]
 
 # Metrics Display
 col1, col2, col3, col4 = st.columns(4)
@@ -73,54 +78,53 @@ with col1:
 with col2:
     st.metric("ESP-2 (Y-Axis RSSI)", f"{rssi_2} dBm", status_2)
 with col3:
-    st.metric("Calculated X Distance", f"{dist_x:.2f} m")
+    st.metric("Target Alpha X", f"{dist_x:.2f} m")
 with col4:
-    st.metric("Calculated Y Distance", f"{dist_y:.2f} m")
+    st.metric("Target Alpha Y", f"{dist_y:.2f} m")
 
 st.markdown("---")
 
-# --- Advanced Plotly Figure with Cross Lines & Intersection Dot ---
+# --- Multi-Target Plotly Figure ---
 fig = go.Figure()
 
-# 1. ESP-1 (Origin Anchor 0,0) اور بنیادی نوڈز
-fig.add_trace(go.Scatter(
-    x=[0.0, dist_x], y=[0.0, 0.0],
-    mode='markers+text',
-    marker=dict(size=14, color='dodgerblue'),
-    text=['ESP-1 (Origin)', 'X-Distance Mark'],
-    textposition="bottom center",
-    name='Anchors'
-))
+# 1. تمام ٹارگٹس اور ورکرز کو ایک ایک کر کے گراف پر پلوٹ کرنا
+for t in targets:
+    fig.add_trace(go.Scatter(
+        x=[t["x"]], y=[t["y"]],
+        mode='markers+text',
+        marker=dict(size=t["size"], color=t["color"], symbol='circle', line=dict(width=2, color='white')),
+        text=[f'{t["name"]} ({t["x"]:.1f}m, {t["y"]:.1f}m)'],
+        textposition="top center",
+        name=t["name"]
+    ))
 
-# 2. True Intersection Target Dot (جہاں دونوں لائنیں آپس میں کاٹیں گی)
-fig.add_trace(go.Scatter(
-    x=[dist_x], y=[dist_y],
-    mode='markers+text',
-    marker=dict(size=25, color='red', symbol='circle', line=dict(width=2, color='white')),
-    text=[f'Target ({dist_x:.1f}m, {dist_y:.1f}m)'],
-    textposition="top center",
-    name='🎯 True Target Intersection'
-))
-
-# 3. Cross Lines (پرپینڈکولر لائنیں جو آپس میں مل کر کراس بنائیں گی)
-# X پوائنٹ سے اوپر کی طرف جانے والی لکیر
+# 2. گائیڈ لائنز (Cross Lines for Primary Target Alpha)
 fig.add_shape(type="line", x0=dist_x, y0=0, x1=dist_x, y1=dist_y,
-              line=dict(color="orange", width=2, dash="dash"))
-# Y پوائنٹ سے دائیں طرف آنے والی لکیر
+              line=dict(color="rgba(255,165,0,0.6)", width=2, dash="dash"))
 fig.add_shape(type="line", x0=0, y0=dist_y, x1=dist_x, y1=dist_y,
-              line=dict(color="orange", width=2, dash="dash"))
+              line=dict(color="rgba(255,165,0,0.6)", width=2, dash="dash"))
 
-# --- Graph Layout & Equal Scale Setup ---
+# --- Layout Configuration ---
 fig.update_layout(
-    title="<b>Cross-Axis Grid: ESP-1 (X) vs ESP-2 (Y) Intersection</b>",
-    xaxis=dict(title="ESP-1 X-Axis Distance (Meters)", range=[0, 10], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
-    yaxis=dict(title="ESP-2 Y-Axis Distance (Meters)", range=[0, 10], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)', scaleanchor="x", scaleratio=1),
+    title="<b>Multi-Target Rescue Zone Mapping (Avoid Secondary Collapses)</b>",
+    xaxis=dict(title="X-Axis Grid (Meters)", range=[0, 11], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
+    yaxis=dict(title="Y-Axis Grid (Meters)", range=[0, 11], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
+    
+    # لیجنڈ نیچے تاکہ نقشہ نہ چھپے
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=-0.35,
+        xanchor="center",
+        x=0.5
+    ),
+    
     paper_bgcolor='rgba(0,0,0,0)',
     plot_bgcolor='rgba(0,0,0,0)',
     font_color='white',
-    height=550
+    height=620
 )
 
 st.plotly_chart(fig, use_container_width=True)
 
-st.success(f"🎯 **Intersection Active:** ESP-1 سے حاصل کردہ فاصلہ X-Axis (`{dist_x:.2f}m`) اور ESP-2 سے حاصل کردہ فاصلہ Y-Axis (`{dist_y:.2f}m`) پر لکیروں کے ذریعے آپس میں مل رہے ہیں اور سرخ رنگ کا واضح نقطہ درست پوزیشن ظاہر کر رہا ہے!")
+st.warning("⚠️ **Safety Precaution:** بھاری مشینری یا کرین کو کسی بھی زون میں حرکت دینے سے پہلے نقشے پر موجود تمام ریڈ اور اورنج ڈاٹس (Targets) کی پوزیشن لازمی چیک کر لیں تاکہ کسی دوسرے دبے ہوئے شخص کو نقصان نہ پہنچے!")
