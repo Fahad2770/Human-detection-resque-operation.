@@ -111,7 +111,7 @@ else:
 fig.update_layout(
     title="<b>Stabilized Cross-Axis Grid Mapping (Moving Average Filtered)</b>",
     xaxis=dict(title="ESP-1 X-Axis (Meters)", range=[0, 20], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
-    yaxis=dict(title="ESP-2 Y-Axis (Meters)", range=[0, 20], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
+    yaxis=dict(title="ESP-2 Y-Axis (Meters)", range=[0, 30], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
     
     legend=dict(
         orientation="h",
