@@ -4,63 +4,57 @@ import requests
 import plotly.graph_objects as go
 from streamlit_autorefresh import st_autorefresh
 
-st.set_page_config(page_title="Real-Time Live Grid Mapping", layout="wide")
+st.set_page_config(page_title="Filtered Live Grid Mapping", layout="wide")
 
 # --- Auto-Refresh (ہر 3 سیکنڈ بعد لائیو سنک) ---
-count = st_autorefresh(interval=3000, limit=None, key="live_grid_refresh")
+count = st_autorefresh(interval=3000, limit=None, key="filtered_live_refresh")
 
-st.title("📍 Real-Time Live ESP-32 Grid Intersection")
-st.markdown(f"### 🌐 خالص لائیو ڈیٹا ٹریکنگ (کوਈ فرضی ڈیٹا نہیں) — (لائیو کاؤنٹر: `{count}`)")
+st.title("📍 Filtered & Stabilized Live Grid Intersection")
+st.markdown(f"### 🌐 اسمارٹ فلٹرڈ لائیو ڈیٹا ٹریکنگ (مشن کریٹیکل موڈ) — (لائیو کاؤنٹر: `{count}`)")
 
 # Channel Configurations
 FIXED_CHANNEL_ID = "3579002"
 READ_API_KEY_FIXED = "PVZCSGAU291YE5CF"
-fixed_url = f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=1"
+fixed_url = f"https://api.thingspeak.com/channels/{FIXED_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_FIXED}&results=5" # پچھلی 5 ریڈنگز تاکہ اوسط نکالی جا سکے
 
 MOBILE_CHANNEL_ID = "3579370"
 READ_API_KEY_MOBILE = "H696MBRW1ASMZZ3W"
-mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_MOBILE}&results=1"
+mobile_url = f"https://api.thingspeak.com/channels/{MOBILE_CHANNEL_ID}/feeds.json?api_key={READ_API_KEY_MOBILE}&results=5"
 
-# 1. Fetch ESP-1 Live Data
-def fetch_esp1():
+# --- Robust Data Fetcher with Moving Average Smoothing ---
+def fetch_smoothed_rssi(url):
     try:
-        res = requests.get(fixed_url, timeout=3)
+        res = requests.get(url, timeout=3)
         if res.status_code == 200:
             feeds = res.json().get('feeds', [])
             if feeds:
-                latest = feeds[-1]
-                # چیک کریں کہ آیا ڈیٹا تازہ ہے یا پرانا
-                val = float(latest.get('field1', -70.0))
-                return val, "Online 🟢"
+                # پچھلی تمام دستیاب ویلیوز کو جمع کر के ان کی اوسط (Average) نکالنا (Noise Filtering)
+                valid_vals = []
+                for f in feeds:
+                    val = f.get('field1')
+                    if val is not None:
+                        try:
+                            valid_vals.append(float(val))
+                        except:
+                            pass
+                if valid_vals:
+                    smoothed_val = sum(valid_vals) / len(valid_vals)
+                    return smoothed_val, "Online 🟢"
     except:
         pass
     return -70.0, "Offline 🔴"
 
-# 2. Fetch ESP-2 Live Data
-def fetch_esp2():
-    try:
-        res = requests.get(mobile_url, timeout=3)
-        if res.status_code == 200:
-            feeds = res.json().get('feeds', [])
-            if feeds:
-                latest = feeds[-1]
-                val = float(latest.get('field1', -70.0))
-                return val, "Online 🟢"
-    except:
-        pass
-    return -70.0, "Offline 🔴"
+rssi_1, status_1 = fetch_smoothed_rssi(fixed_url)
+rssi_2, status_2 = fetch_smoothed_rssi(mobile_url)
 
-rssi_1, status_1 = fetch_esp1()
-rssi_2, status_2 = fetch_esp2()
-
-# --- Distance Calculation (Path-Loss Model) ---
+# --- Path-Loss Model & Distance Calculation ---
 measured_power = -50
 n = 2.5
 
 safe_rssi_1 = rssi_1 if rssi_1 < 0 else -70.0
 safe_rssi_2 = rssi_2 if rssi_2 < 0 else -70.0
 
-# اگر سگنل بہت زیادہ کمزور ہو (-90 dBm سے کم)، تو فاصل حد سے باہر تصور ہوگا
+# اگر سگنل بہت زیادہ کمزور ہو تو حد سے باہر تصور ہوگا
 if safe_rssi_1 < -90 or safe_rssi_2 < -90:
     target_active = False
     dist_x, dist_y = 0.0, 0.0
@@ -75,28 +69,28 @@ else:
 # Metrics Display
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    st.metric("ESP-1 (X-Axis RSSI)", f"{rssi_1} dBm", status_1)
+    st.metric("ESP-1 (Smoothed RSSI)", f"{rssi_1:.1f} dBm", status_1)
 with col2:
-    st.metric("ESP-2 (Y-Axis RSSI)", f"{rssi_2} dBm", status_2)
+    st.metric("ESP-2 (Smoothed RSSI)", f"{rssi_2:.1f} dBm", status_2)
 with col3:
-    st.metric("Live X Distance", f"{dist_x:.2f} m" if target_active else "Out of Range")
+    st.metric("Filtered X Distance", f"{dist_x:.2f} m" if target_active else "Out of Range")
 with col4:
-    st.metric("Live Y Distance", f"{dist_y:.2f} m" if target_active else "Out of Range")
+    st.metric("Filtered Y Distance", f"{dist_y:.2f} m" if target_active else "Out of Range")
 
 st.markdown("---")
 
-# --- Plotly Figure (Pure Live Data Only) ---
+# --- Plotly Figure ---
 fig = go.Figure()
 
 if target_active:
-    # صرف حقیقی لائیو ہدف شو ہوگا
+    # لائیو فلٹرڈ ٹارگٹ پوائنٹ
     fig.add_trace(go.Scatter(
         x=[dist_x], y=[dist_y],
         mode='markers+text',
         marker=dict(size=22, color='red', symbol='circle', line=dict(width=2, color='white')),
-        text=[f'Live Target ({dist_x:.1f}m, {dist_y:.1f}m)'],
+        text=[f'Stable Target ({dist_x:.1f}m, {dist_y:.1f}m)'],
         textposition="top center",
-        name='🎯 Active Live Target'
+        name='🎯 Stabilized Target'
     ))
 
     # کراس لائنیں
@@ -105,18 +99,17 @@ if target_active:
     fig.add_shape(type="line", x0=0, y0=dist_y, x1=dist_x, y1=dist_y,
                   line=dict(color="orange", width=2, dash="dash"))
 else:
-    # اگر رینج سے باہر ہوں تو گراف خالی دکھائے گا
     fig.add_trace(go.Scatter(
         x=[5], y=[5],
         mode='text',
-        text=["⚠️ کوئی فعال ہدف (Target) رینج میں موجود نہیں ہے"],
+        text=["⚠️ کوئی فعال ہدف رینج میں نہیں ہے"],
         textfont=dict(size=16, color='yellow'),
         name='Status'
     ))
 
 # Layout Configuration
 fig.update_layout(
-    title="<b>Real-Time Cross-Axis Grid Mapping</b>",
+    title="<b>Stabilized Cross-Axis Grid Mapping (Moving Average Filtered)</b>",
     xaxis=dict(title="ESP-1 X-Axis (Meters)", range=[0, 11], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
     yaxis=dict(title="ESP-2 Y-Axis (Meters)", range=[0, 11], showgrid=True, gridwidth=1, gridcolor='rgba(255,255,255,0.2)'),
     
@@ -137,6 +130,6 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 if target_active:
-    st.success("🟢 **Live Status:** ESP-32 کا سگنل موصول ہو رہا ہے اور ہدف لائیو ٹریک ہو رہا ہے۔")
+    st.success("🟢 **System Stabilized:** مووننگ ایوریج فلٹر فعال ہے، جس سے سگنل کے بے قاعدہ جھٹکے ختم ہو گئے ہیں اور پوائنٹ بالکل مستحکم لائیو نظر آ رہا ہے۔")
 else:
-    st.warning("⚠️ **Out of Range:** ESP-32 نوڈز سگنل کی حد سے باہر ہیں یا سگنل بہت کمزور (-90 dBm سے کم) ہے۔")
+    st.warning("⚠️ **Out of Range:** سگنل کمزور ہیں یا نوڈز حد سے باہر ہیں۔")
